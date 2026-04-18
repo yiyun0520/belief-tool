@@ -1,6 +1,6 @@
 import { useAuth } from "./useAuth";
 import LoginScreen from "./LoginScreen";
-import BeliefApp from "./BeliefApp";
+import { AppWithToast } from "./BeliefApp";
 
 const THEMES_MINIMAL = {
   d1: { bg: "#23232E", t1: "#E8E6F4", t3: "#9B98B0", accent: "#6B63D4" },
@@ -38,5 +38,5 @@ export default function App() {
 
   if (loading) return <LoadingScreen />;
   if (!user) return <LoginScreen onLogin={login} />;
-  return <BeliefApp user={user} onLogout={logout} />;
+  return <AppWithToast user={user} onLogout={logout} />;
 }
