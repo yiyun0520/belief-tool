@@ -530,27 +530,78 @@ function AboutContent({ th, t, lang }) {
 }
 
 // ── SyncDot ───────────────────────────────────────────────────────────────────
-function SyncDot({ status, t, th }) {
-  const [showErr, setShowErr] = useState(false);
-  if(status === "synced") return null;
-  if(status === "syncing" || status === "loading") {
+function SyncDot({ status, t, th, showLabel=false }) {
+  const [showTip, setShowTip] = useState(false);
+  const [stuckLoading, setStuckLoading] = useState(false);
+  const stuckTimer = useRef(null);
+
+  // If loading/syncing for more than 12s, show error state
+  useEffect(() => {
+    if(status === "syncing" || status === "loading") {
+      stuckTimer.current = setTimeout(() => setStuckLoading(true), 12000);
+    } else {
+      clearTimeout(stuckTimer.current);
+      setStuckLoading(false);
+    }
+    return () => clearTimeout(stuckTimer.current);
+  }, [status]);
+
+  const effectiveStatus = stuckLoading ? "error" : status;
+
+  if(effectiveStatus === "synced") {
+    if(showLabel) {
+      return (
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <div style={{width:7,height:7,borderRadius:9999,background:"#4EAD88",flexShrink:0}}/>
+          <span style={{color:th.t3,fontSize:12}}>{t.syncStatus_synced}</span>
+        </div>
+      );
+    }
+    return (
+      <div style={{position:"relative",flexShrink:0}} onMouseEnter={()=>setShowTip(true)} onMouseLeave={()=>setShowTip(false)}>
+        <div style={{width:7,height:7,borderRadius:9999,background:"#4EAD88",flexShrink:0,cursor:"default"}}/>
+        {showTip&&(
+          <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:th.bgCard,border:"0.5px solid "+th.border,borderRadius:8,padding:"6px 10px",fontSize:12,color:th.t2,whiteSpace:"nowrap",zIndex:500,boxShadow:"0 4px 12px rgba(0,0,0,0.15)"}}>
+            {t.syncStatus_synced}
+          </div>
+        )}
+      </div>
+    );
+  }
+  if(effectiveStatus === "syncing" || effectiveStatus === "loading") {
+    if(showLabel) {
+      return (
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <Spinner size={12} color={th.t3}/>
+          <span style={{color:th.t3,fontSize:12}}>{effectiveStatus === "loading" ? t.syncStatus_loading : t.syncStatus_syncing}</span>
+        </div>
+      );
+    }
     return (
       <div style={{display:"flex",alignItems:"center",width:18,height:18,flexShrink:0}}>
         <Spinner size={14} color={th.t2}/>
       </div>
     );
   }
-  if(status === "error") {
+  if(effectiveStatus === "error") {
+    if(showLabel) {
+      return (
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <div style={{width:7,height:7,borderRadius:9999,background:th.coral,flexShrink:0}}/>
+          <span style={{color:th.coral,fontSize:12}}>{t.syncStatus_error}</span>
+        </div>
+      );
+    }
     return (
       <div style={{position:"relative",flexShrink:0}}>
-        <button onClick={()=>setShowErr(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",alignItems:"center"}}>
+        <button onClick={()=>setShowTip(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",alignItems:"center"}}>
           <svg viewBox="0 0 16 16" width={16} height={16}>
             <path d="M8 2L14 13H2L8 2Z" fill="none" stroke={th.coral} strokeWidth="1.5" strokeLinejoin="round"/>
             <line x1="8" y1="7" x2="8" y2="10" stroke={th.coral} strokeWidth="1.5" strokeLinecap="round"/>
             <circle cx="8" cy="12" r="0.8" fill={th.coral}/>
           </svg>
         </button>
-        {showErr&&(
+        {showTip&&(
           <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:th.bgCard,border:"0.5px solid "+th.border,borderRadius:8,padding:"8px 12px",fontSize:12,color:th.coral,whiteSpace:"nowrap",zIndex:500,boxShadow:"0 4px 12px rgba(0,0,0,0.15)"}}>
             {t.syncStatus_error}
           </div>
@@ -558,7 +609,16 @@ function SyncDot({ status, t, th }) {
       </div>
     );
   }
-  return <div style={{width:7,height:7,borderRadius:9999,background:"#9B98B0",flexShrink:0}}/>;
+  // offline
+  if(showLabel) {
+    return (
+      <div style={{display:"flex",alignItems:"center",gap:6}}>
+        <div style={{width:7,height:7,borderRadius:9999,background:th.t3,flexShrink:0}}/>
+        <span style={{color:th.t3,fontSize:12}}>{t.syncStatus_offline}</span>
+      </div>
+    );
+  }
+  return <div style={{width:7,height:7,borderRadius:9999,background:th.t3,flexShrink:0}}/>;
 }
 
 // ── Header ────────────────────────────────────────────────────────────────────
@@ -648,7 +708,7 @@ function Header({ th, t, settings, onSettings, onAbout, onHistory, showHistory, 
                     <div style={{color:th.t3,fontSize:11}}>{user.email}</div>
                   </div>
                 </div>
-                <SyncDot status={syncStatus} t={t} th={th}/>
+                <SyncDot status={syncStatus} t={t} th={th} showLabel={true}/>
               </div>
             )}
             <button onClick={()=>{closeDrawer();onLogout&&onLogout();}} style={{...fullBtn,marginBottom:0,color:th.coral,borderColor:th.coral+"66"}}>
@@ -681,7 +741,7 @@ function Header({ th, t, settings, onSettings, onAbout, onHistory, showHistory, 
         <span style={{color:th.t1,fontWeight:600,fontSize:15,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{title}</span>
         {!isMobile&&(
           <>
-            {syncStatus&&<SyncDot status={syncStatus} t={t} th={th}/>}
+            {user&&syncStatus&&<SyncDot status={syncStatus} t={t} th={th}/>}
             {showHistory&&<button onClick={onHistory} style={ib}><Clock size={18}/></button>}
             {onExportSingleMD&&<button onClick={onExportSingleMD} style={sb}><Download size={13}/>{t.exportThis_md}</button>}
             <button onClick={()=>{setDrawerOpen(v=>!v);setConfirmReset(false);}}
@@ -693,7 +753,7 @@ function Header({ th, t, settings, onSettings, onAbout, onHistory, showHistory, 
         )}
         {isMobile&&(
           <>
-            {syncStatus&&<SyncDot status={syncStatus} t={t} th={th}/>}
+            {user&&syncStatus&&<SyncDot status={syncStatus} t={t} th={th}/>}
             <button onClick={()=>{setDrawerOpen(v=>!v);setConfirmReset(false);}}
               style={{width:32,height:32,borderRadius:9999,background:drawerOpen?th.accent+"22":"none",border:"0.5px solid "+(drawerOpen?th.accent:th.border),cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
               <svg viewBox="0 0 18 18" width={18} height={18} fill="none">
@@ -953,7 +1013,7 @@ function ListView({ th, t, settings, onSettings, beliefs, onSelect, onDelete, on
   const filtered=filter==="all"?beliefs:beliefs.filter(b=>getStatus(b)===filter);
   return (
     <div style={{background:th.bg,minHeight:"100dvh",color:th.t1,display:"flex",flexDirection:"column"}}>
-      <Header th={th} t={t} settings={settings} onSettings={onSettings} title={t.appTitle} onExport={onExport} onImport={onImport} onExportMD={onExportMD} onResetAll={onResetAll} user={user} onLogout={onLogout} syncStatus={syncStatus}/>
+      <Header th={th} t={t} settings={settings} onSettings={onSettings} title={t.appTitle} onAbout={()=>{}} onExport={onExport} onImport={onImport} onExportMD={onExportMD} onResetAll={onResetAll} user={user} onLogout={onLogout} syncStatus={syncStatus}/>
       <div style={{overflowX:"auto",borderBottom:"0.5px solid "+th.border,flexShrink:0,scrollbarWidth:"none",msOverflowStyle:"none"}} className="hide-scrollbar">
         <div style={{display:"flex",gap:0,padding:"0 16px",justifyContent:"center",minWidth:"max-content"}}>
           {tabs.map(tab=>(
@@ -1065,7 +1125,7 @@ function AddView({ th, t, settings, onSettings, beliefs, onCreate, onBack, onRes
 
   return (
     <div style={{background:th.bg,minHeight:"100dvh",color:th.t1}}>
-      <Header th={th} t={t} settings={settings} onSettings={onSettings}
+      <Header th={th} t={t} settings={settings} onSettings={onSettings} onAbout={()=>{}}
         left={<button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",color:th.t2,display:"flex",alignItems:"center",gap:4,padding:"4px 0",fontSize:14,flexShrink:0}}><ArrowLeft size={16}/>{t.back}</button>}
         title={t.addBelief} onResetAll={onResetAll} user={user} onLogout={onLogout} syncStatus={syncStatus}/>
       <div style={{padding:20,maxWidth:600,margin:"0 auto"}}>
@@ -1243,7 +1303,7 @@ function DetailView({ th, t, settings, onSettings, belief, onUpdate, onBack, onR
 
   return (
     <div style={{background:th.bg,minHeight:"100dvh",color:th.t1}}>
-      <Header th={th} t={t} settings={settings} onSettings={onSettings} onHistory={()=>setHistOpen(true)} showHistory
+      <Header th={th} t={t} settings={settings} onSettings={onSettings} onAbout={()=>{}} onHistory={()=>setHistOpen(true)} showHistory
         left={<button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",color:th.t2,display:"flex",alignItems:"center",gap:4,padding:"4px 0",fontSize:14,flexShrink:0}}><ArrowLeft size={16}/>{t.back}</button>}
         title={t.appTitle}
         onExportSingleMD={()=>exportSingleMD(belief,settings.lang)}
